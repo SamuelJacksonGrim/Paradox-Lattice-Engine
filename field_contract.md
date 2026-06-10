@@ -25,10 +25,10 @@ If any of these conditions fail → the field is invalid.
 
 A TensionField must contain:
 
-- regions — list of TensionRegion objects  
-- global_intensity — aggregated tension magnitude  
-- coherence_map — mapping of frame → coherence score  
-- void_zones — areas with no valid model coverage  
+- `regions` — list of TensionRegion objects  
+- `global_intensity` — aggregated tension magnitude  
+- `coherence_map` — mapping of frame → coherence score  
+- `void_zones` — areas with no valid model coverage  
 
 A TensionField must not:
 
@@ -48,12 +48,12 @@ A TensionRegion is the atomic unit of a TensionField.
 
 A valid region must include:
 
-- region_id  
-- paradox_ids  
-- tension_density  
-- coherence_score  
-- gradient_vector  
-- neighbors  
+- `region_id`  
+- `paradox_ids`  
+- `tension_density`  
+- `coherence_score`  
+- `gradient_vector`  
+- `neighbors`  
 
 A region must satisfy:
 
@@ -112,7 +112,7 @@ Void zones must not be collapsed into regions with paradoxes.
 
 TensionFields are mutable, but only through:
 
-- tensionfieldgenerator  
+- tension_field_generator  
 - tension_topology  
 - coherence_map  
 - resolution_horizon (if moved into synthesis)  
@@ -247,16 +247,16 @@ May not:
 
 Valid field events:
 
-- generated  
-- expanded  
-- collapsed  
-- updated  
-- archived  
+- `generated`  
+- `expanded`  
+- `collapsed`  
+- `updated`  
+- `archived`  
 
 Invalid events:
 
-- deleted  
-- resolved  
+- `deleted`  
+- `resolved`  
 
 Fields cannot be deleted or resolved — only collapsed or archived.
 
