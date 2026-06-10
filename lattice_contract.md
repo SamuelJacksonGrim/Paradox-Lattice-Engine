@@ -39,11 +39,11 @@ A lattice node must be one of:
 
 Every node must include:
 
-- node_id  
-- node_type  
-- payload  
-- tension_load  
-- stability_score  
+- `node_id`  
+- `node_type`  
+- `payload`  
+- `tension_load`  
+- `stability_score`  
 
 Rules:
 
@@ -69,20 +69,20 @@ Edges represent structural relationships.
 
 Valid edge types:
 
-- contradiction  
-- overlap  
-- synthesis  
-- dependency  
-- attractor_link  
+- `contradiction`  
+- `overlap`  
+- `synthesis`  
+- `dependency`  
+- `attractor_link`  
 
 Every edge must include:
 
-- edge_id  
-- source  
-- target  
-- relation_type  
-- weight  
-- tension_transfer  
+- `edge_id`  
+- `source`  
+- `target`  
+- `relation_type`  
+- `weight`  
+- `tension_transfer`  
 
 Rules:
 
@@ -115,10 +115,10 @@ Only lattice processors may mutate topology.
 
 The lattice is mutable, but only through:
 
-- lattice_builder  
-- lattice_simplifier  
-- multiframeindex  
-- attractor_evolution  
+- `lattice_builder`  
+- `lattice_simplifier`  
+- `multi_frame_index`  
+- `attractor_evolution`  
 
 Allowed mutations:
 
@@ -258,18 +258,18 @@ May not:
 
 Valid lattice events:
 
-- node_added  
-- edge_added  
-- simplified  
-- expanded  
-- stabilized  
-- archived  
+- `node_added`  
+- `edge_added`  
+- `simplified`  
+- `expanded`  
+- `stabilized`  
+- `archived`  
 
 Invalid events:
 
-- deleted  
-- resolved  
-- collapsed  
+- `deleted`  
+- `resolved`  
+- `collapsed`  
 
 Lattices cannot be deleted or resolved — only simplified or archived.
 
