@@ -14,7 +14,7 @@ A valid attractor must satisfy:
 - Recurrence — the same or similar synthesis patterns must appear multiple times.  
 - Stability — the structure must persist across context windows.  
 - Tension compatibility — the attractor must reduce or reorganize tension without erasing paradox.  
-- Representability — must map cleanly to an Attractor model and lattice node.  
+- Representability — must map cleanly to an `Attractor` model and lattice node.  
 - Lineage continuity — must preserve the history of syntheses that formed it.
 
 If any of these conditions fail → the attractor is invalid.
@@ -25,20 +25,20 @@ If any of these conditions fail → the attractor is invalid.
 
 Every attractor must include:
 
-- attractor_id: str  
-- type: str                     // coexistence | hybrid | reframed | emergent  
-- coresyntheses: list[str]     // synthesisids  
-- stability_score: float  
-- tension_profile: dict  
-- basin_nodes: list[str]        // lattice nodes in the attractor basin  
-- lineage: list[str]            // synthesis + paradox ancestry  
+- `attractor_id: str`  
+- `type: str`                     // coexistence | hybrid | reframed | emergent  
+- `core_syntheses: list[str]`     // synthesisids  
+- `stability_score: float`  
+- `tension_profile: dict`  
+- `basin_nodes: list[str]`        // lattice nodes in the attractor basin  
+- `lineage: list[str]`            // synthesis + paradox ancestry  
 
 Rules:
 
-- stability_score ∈ [0.0, 1.0]  
-- core_syntheses must be non‑empty  
-- basin_nodes must form a connected subgraph  
-- lineage must be monotonic (never removed, only extended)
+- `stability_score` ∈ [0.0, 1.0]  
+- `core_syntheses` must be non‑empty  
+- `basin_nodes` must form a connected subgraph  
+- `lineage` must be monotonic (never removed, only extended)
 
 Attractors are immutable except for stability_score and basin expansion.
 
@@ -236,17 +236,17 @@ May not:
 
 Valid attractor events:
 
-- candidate_created  
-- forming  
-- activated  
-- stabilized  
-- attenuated  
-- archived  
+- `candidate_created`  
+- `forming`  
+- `activated`  
+- `stabilized`  
+- `attenuated`  
+- `archived`  
 
 Invalid events:
 
-- deleted  
-- resolved  
+- `deleted`  
+- `resolved`  
 
 Attractors cannot be deleted or resolved — only attenuated or archived.
 
