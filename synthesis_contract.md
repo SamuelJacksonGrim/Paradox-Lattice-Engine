@@ -13,7 +13,7 @@ A valid synthesis must:
 
 - Consume tension: be grounded in one or more paradoxes or tension regions.  
 - Produce structure: yield a new frame, relation, or configuration.  
-- Be representable: map cleanly to a SynthesisRecord and a lattice node.  
+- Be representable: map cleanly to a `SynthesisRecord` and a lattice node.  
 - Be reversible at the level of history: its inputs must remain traceable.  
 - Not erase paradox: it may attenuate tension, but not retroactively remove the paradox.
 
@@ -25,20 +25,20 @@ If any of these fail → it is not a synthesis.
 
 Every synthesis must be represented as a SynthesisRecord:
 
-- synthesis_id: str  
-- paradox_ids: list[str]  
-- method: str              // coexistence | hybridization | reframing | other  
-- resulting_frame: str  
-- quality_score: float  
-- tension_reduction: float  
-- lineage: list[str]       // prior syntheses / attractors / episodes  
+- `synthesis_id: str`  
+- `paradox_ids: list[str]`  
+- `method: str`              // coexistence | hybridization | reframing | other  
+- `resulting_frame: str`  
+- `quality_score: float`  
+- `tension_reduction: float`  
+- `lineage: list[str]`       // prior syntheses / attractors / episodes  
 
 Rules:
 
-- paradox_ids must be non‑empty.  
-- tension_reduction ∈ [0.0, 1.0].  
-- quality_score ∈ [0.0, 1.0].  
-- resulting_frame must be a coherent frame, not a raw concatenation.  
+- `paradox_ids` must be non‑empty.  
+- `tension_reduction` ∈ [0.0, 1.0].  
+- `quality_score` ∈ [0.0, 1.0].  
+- `resulting_frame` must be a coherent frame, not a raw concatenation.  
 
 SynthesisRecords are immutable once created.
 
@@ -106,8 +106,8 @@ Synthesis must:
 
 Synthesis may:
 
-- reduce tension_load on connected nodes.  
-- increase stability_score where appropriate.
+- reduce `tension_load` on connected nodes.  
+- increase `stability_score` where appropriate.
 
 Synthesis may not:
 
@@ -137,7 +137,7 @@ Attractor creation and evolution are governed by the attractor contract.
 
 Memory must:
 
-- store SynthesisRecords as part of ParadoxMemoryEpisodes.  
+- store SynthesisRecords as part of `ParadoxMemoryEpisodes`.  
 - preserve lineage and tension_reduction values.  
 - allow retrieval by paradox, region, lattice pattern, or attractor.
 
@@ -176,15 +176,15 @@ Low‑quality syntheses may be deprecated, but not deleted.
 
 Valid synthesis events:
 
-- created  
-- evaluated  
-- promotedtoattractor_candidate  
-- deprecated  
+- `created`  
+- `evaluated`  
+- `promoted_to_attractor_candidate`  
+- `deprecated`  
 
 Invalid events:
 
-- deleted  
-- resolved_paradox  
+- `deleted`  
+- `resolved_paradox`  
 
 Synthesis never “resolves” paradox; it only transforms how tension is structured.
 
