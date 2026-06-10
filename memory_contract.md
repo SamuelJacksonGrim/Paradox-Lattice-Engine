@@ -301,18 +301,18 @@ May not:
 
 Valid memory events:
 
-- episode_created  
-- snapshot_created  
-- signature_compressed  
-- finding_recorded  
-- attractor_archived  
-- episode_archived  
+- `episode_created`  
+- `snapshot_created`  
+- `signature_compressed`  
+- `finding_recorded`  
+- `attractor_archived`  
+- `episode_archived`  
 
 Invalid events:
 
-- deleted  
-- resolved  
-- overwritten  
+- `deleted`  
+- `resolved`  
+- `overwritten`  
 
 Memory cannot delete, resolve, or overwrite anything.
 
