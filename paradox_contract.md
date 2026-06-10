@@ -25,13 +25,13 @@ If any of these conditions fail → the object is not a paradox.
 
 Every paradox must be represented as a ParadoxNode containing:
 
-- framea and frameb  
-- contradiction_type  
-- intensity  
-- context_window  
-- supporting_evidence  
-- opposing_evidence  
-- lineage
+- `frame_a` and `frame_b`  
+- `contradiction_type`  
+- `intensity`  
+- `context_window`  
+- `supporting_evidence`  
+- `opposing_evidence`  
+- `lineage`
 
 A paradox must not:
 
@@ -63,10 +63,10 @@ But only if:
 
 Nested paradoxes must be represented as:
 
-`
+```
 ParadoxNode:
-    nestedparadoxids: list[str]
-`
+    nested_paradox_ids: list[str]
+```
 
 Nested paradoxes must not be flattened unless explicitly simplified by the lattice layer.
 
@@ -223,18 +223,18 @@ It may not:
 
 Valid paradox events:
 
-- detected  
-- normalized  
-- updated  
-- nested  
-- attenuated  
-- archived
+- `detected`  
+- `normalized`  
+- `updated`  
+- `nested`  
+- `attenuated`  
+- `archived`
 
 Invalid events:
 
-- resolved  
-- deleted  
-- collapsed  
+- `resolved`  
+- `deleted`  
+- `collapsed`  
 
 Paradoxes cannot be resolved or deleted — only attenuated or archived.
 
