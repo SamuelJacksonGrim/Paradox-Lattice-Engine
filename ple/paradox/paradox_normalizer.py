@@ -37,6 +37,29 @@ def to_paradox_node(
     return node
 
 
+def nest(parent: ParadoxNode, child: ParadoxNode) -> None:
+    """Cross-frame paradox merging: when the same claim conflicts across
+    three or more frames, the hottest pairwise paradox becomes the parent
+    and the others nest beneath it (paradox_contract.md §3). The parent
+    stays valid, the children are never flattened, and lineage records the
+    nesting.
+    """
+    from ple.errors import ContractViolation
+    from ple.models._mutation import authorized_set, extend_lineage
+
+    if child.paradox_id == parent.paradox_id:
+        raise ContractViolation("a paradox cannot nest inside itself")
+    if child.paradox_id in parent.nested_paradox_ids:
+        return
+    authorized_set(
+        parent,
+        "nested_paradox_ids",
+        parent.nested_paradox_ids + (child.paradox_id,),
+        actor=ACTOR,
+    )
+    extend_lineage(parent, [f"nested:{child.paradox_id}"], actor=ACTOR)
+
+
 def signature(node: ParadoxNode) -> tuple:
     """Stable identity for recurrence detection: same frames + claim + type."""
     return (
