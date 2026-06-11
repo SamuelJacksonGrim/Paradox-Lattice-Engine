@@ -96,6 +96,13 @@ def update_edges(lattice: ParadoxLattice, field: TensionField | None) -> None:
                 )
 
 
+def set_resolution_horizons(
+    lattice: ParadoxLattice, horizon_ids: list[str]
+) -> None:
+    """Record the current resolution horizons on the lattice."""
+    lattice.resolution_horizons = list(horizon_ids)
+
+
 def _refresh_load(lattice: ParadoxLattice, paradox: ParadoxNode) -> None:
     node = lattice.find_paradox_node(paradox.paradox_id)
     if node is not None:

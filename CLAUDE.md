@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Status
 
-The engine is **implemented** as the Python package `ple/` (Phases 1, 2 (partial), 3 (partial), and 5 of the roadmap). The contract documents (`*_contract.md`) remain the authoritative behavioral spec; the code enforces them at runtime via `ContractViolation` exceptions.
+The engine is **implemented** as the Python package `ple/` (Phases 1–6 of the roadmap). The contract documents (`*_contract.md`) remain the authoritative behavioral spec; the code enforces them at runtime via `ContractViolation` exceptions.
 
 ## Commands
 
@@ -31,12 +31,13 @@ ple/core/        — ParadoxLatticeEngine orchestrator (paradox_pipeline.py) + T
 ple/paradox/     — detector, classifier, intensity model (sole intensity mutator), normalizer
 ple/fields/      — tension field generator, coherence map processor, resolution horizons
 ple/lattice/     — lattice builder, simplifier (cannot delete paradox/attractor nodes)
-ple/synthesis/   — synthesis engine (method chosen by contradiction type)
+ple/synthesis/   — synthesis engine (method chosen by contradiction type) + collapse predictor
 ple/attractors/  — detector (recurrence >= 2), evolution, stability, registry
 ple/findings/    — extractor (requires stable attractor), validator, export
-ple/memory/      — append-only ParadoxMemoryBuffer
+ple/memory/      — append-only ParadoxMemoryBuffer + LatticePatternStore (bucketed motif signatures)
 ple/metrics/     — ecology metrics (density, tension load, quality, stability)
-tests/           — contract enforcement + end-to-end pipeline tests
+ple/integration/ — external_api facade (submit_frames/get_findings/ecology_report) + system_hooks
+tests/           — contract enforcement + end-to-end pipeline + emergence tests
 ```
 
 ### Key implementation patterns
@@ -46,6 +47,9 @@ tests/           — contract enforcement + end-to-end pipeline tests
 - **Actor strings**: modules declare an `ACTOR` constant (e.g. `"synthesis_engine"`) and pass it to guarded operations. The lattice additionally restricts which node types each actor may add.
 - **Recurrence drives emergence**: `ParadoxLatticeEngine` is stateful. The same contradiction processed twice forms an attractor; a finding is extracted once per attractor the moment stability crosses `finding_extractor.MIN_STABILITY` (0.5) — typically on the second encounter.
 - **Frames** are plain dicts: `{"name": str, "claims": {key: value}}`; contradictions are shared claim keys with conflicting (post-canonicalization) values.
+- **Habituation/collapse/flare**: re-encounters intensify by `0.1 / encounter_count`, so repeatedly-synthesized contradictions eventually drain below `COLLAPSE_INTENSITY` (0.05) and attenuate. A collapsed paradox returning resets habituation and flares back to active.
+- **Multi-agent**: `engine.process_many(frames)` runs all pairwise detections; when ≥3 frames conflict on one claim, the pairwise paradoxes nest under the hottest one.
+- **Failure-mode guards**: paradox flooding (cap archives drained attenuated paradoxes), stability ossification (new paradoxes touching an attractor's frames destabilize it and trigger finding revalidation).
 
 ---
 

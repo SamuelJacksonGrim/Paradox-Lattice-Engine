@@ -304,18 +304,18 @@ Phase 1 — Minimal Paradox Engine
 
 Phase 2 — Paradox Memory & Retrieval
 - [x] Tension signatures  
-- [ ] Lattice pattern store  
+- [x] Lattice pattern store  
 - [x] Synthesis history  
 - [x] Attractor history (registry + recurrence tracking)  
 
 Phase 3 — Stability & Resolution
-- [x] Resolution horizon modeling (basic)  
+- [x] Resolution horizon modeling  
 - [x] Stability profiles  
-- [ ] Collapse prediction  
+- [x] Collapse prediction (habituation → collapse → flare-back)  
 
 Phase 4 — Multi‑Frame / Multi‑Mind Support
-- [ ] Cross‑frame paradox merging  
-- [ ] Multi‑agent contradiction modeling  
+- [x] Cross‑frame paradox merging (nested paradox clusters)  
+- [x] Multi‑agent contradiction modeling (`process_many`)  
 
 Phase 5 — Findings Layer
 - [x] Finding extraction  
@@ -323,9 +323,9 @@ Phase 5 — Findings Layer
 - [x] Finding export  
 
 Phase 6 — Production Integration
-- [ ] External API  
-- [ ] System hooks  
-- [ ] Observability layer  
+- [x] External API (`integration/external_api.py`)  
+- [x] System hooks (`integration/system_hooks.py`)  
+- [x] Observability layer (ecology reports + routed event history)  
 
 ---
 
