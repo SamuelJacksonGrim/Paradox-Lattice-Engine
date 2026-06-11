@@ -33,3 +33,7 @@ class AttractorRegistry:
     @property
     def all(self) -> tuple[Attractor, ...]:
         return tuple(self._by_id.values())
+
+    def items(self) -> tuple[tuple[tuple, Attractor], ...]:
+        """(signature, attractor) pairs — read-only view for stability checks."""
+        return tuple(self._by_signature.items())

@@ -9,6 +9,8 @@ Run:  python3 examples/demo.py
 
 from ple import ParadoxLatticeEngine
 from ple.findings import finding_export
+from ple.integration import external_api
+from ple.models.paradox import ParadoxState
 
 WAVE = {"name": "wave_theory", "claims": {"light_is": "a wave"}}
 PARTICLE = {"name": "particle_theory", "claims": {"light_is": "a particle"}}
@@ -61,6 +63,38 @@ def main():
           f"[{r.syntheses[0].method}] {r.syntheses[0].resulting_frame}")
     print(f"lattice    : {len(r.lattice.nodes)} nodes, {len(r.lattice.edges)} edges, "
           f"{len(r.lattice.nodes_of_type('paradox'))} paradoxes coexisting")
+
+    banner("Three minds collide: multi-agent contradiction")
+    FIELD = {"name": "field_theory", "claims": {"light_is": "a field excitation"}}
+    r = engine.process_many([WAVE, PARTICLE, FIELD])
+    parents = [p for p in r.paradox_nodes if p.nested_paradox_ids]
+    print(f"pairwise   : {len(r.paradox_nodes)} paradoxes from 3 frames")
+    print(f"merged     : hottest paradox nests {len(parents[0].nested_paradox_ids)} "
+          f"siblings beneath it (cross-frame merging)")
+
+    banner("The long arc: habituation -> collapse -> flare")
+    arc = ParadoxLatticeEngine()
+    n = 0
+    while True:
+        n += 1
+        r = arc.process(WAVE, PARTICLE)
+        node = r.paradox_nodes[0]
+        if node.state == ParadoxState.ATTENUATED:
+            break
+    print(f"after {n} encounters the contradiction habituates: intensity "
+          f"{node.intensity:.4f} -> COLLAPSED (attenuated, never deleted)")
+    print(f"  horizon  : collapse probability was "
+          f"{r.horizons[0].collapse_probability:.3f}")
+    r = arc.process(WAVE, PARTICLE)
+    print(f"...but it returns: flare-back -> [{node.state.value}] "
+          f"intensity {node.intensity:.4f} — collapse was never resolution")
+
+    banner("Ecology report (observability for host systems)")
+    report = external_api.ecology_report(engine)
+    for key in ("active_paradoxes", "mean_intensity", "lattice_nodes",
+                "lattice_edges", "episodes", "findings",
+                "recurring_lattice_patterns", "events_routed"):
+        print(f"{key:28s}: {report[key]}")
 
     banner("Memory: the full cognitive history")
     print(f"episodes   : {len(engine.memory.episodes)}")

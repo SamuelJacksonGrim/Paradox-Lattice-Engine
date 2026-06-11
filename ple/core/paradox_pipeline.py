@@ -6,17 +6,26 @@ Contradiction Detected
         -> Paradox Lattice Construction / Update
         -> Synthesis Engine Pass
         -> Attractor Dynamics (recurrence -> stability)
+        -> Resolution Horizons (collapse prediction)
         -> Finding Extraction (from stable attractors)
-        -> Memory Encoding (Paradox Episode)
+        -> Memory Encoding (Paradox Episode + lattice patterns)
         -> Metrics & Events
 
 The engine is stateful across runs: recurrence of similar syntheses over
 repeated encounters with the same contradiction is what forms attractors and
 eventually findings. PLE runs only when contradictions appear.
+
+Failure-mode guards (ARCHITECTURE.md §10):
+- paradox flooding   -> density cap archives drained, attenuated paradoxes
+- stability ossification -> new paradoxes touching an attractor's frames
+  destabilize it, so settled structure stays answerable to fresh tension
+- premature collapse -> collapse is only confirmed when tension has actually
+  drained below the threshold, never forced
 """
 
 from __future__ import annotations
 
+from itertools import combinations
 from dataclasses import dataclass, field
 
 from ple import events
@@ -27,15 +36,17 @@ from ple.attractors import (
 from ple.attractors.attractor_detector import AttractorDetector
 from ple.attractors.attractor_registry import AttractorRegistry
 from ple.core.tension_router import TensionRouter
-from ple.fields import resolution_horizon, tension_field_generator
+from ple.fields import tension_field_generator
 from ple.findings import finding_extractor, finding_validator
 from ple.lattice import lattice_builder, lattice_simplifier
+from ple.memory.lattice_pattern_store import LatticePatternStore
 from ple.memory.paradox_memory_buffer import ParadoxMemoryBuffer
 from ple.metrics import ecology
 from ple.models.attractor import Attractor, AttractorState
 from ple.models.finding import Finding
+from ple.models.horizon import ResolutionHorizon
 from ple.models.lattice import ParadoxLattice
-from ple.models.paradox import ParadoxNode
+from ple.models.paradox import ParadoxNode, ParadoxState
 from ple.models.synthesis import SynthesisRecord
 from ple.models.tension_field import TensionField
 from ple.paradox import (
@@ -45,6 +56,10 @@ from ple.paradox import (
     paradox_normalizer,
 )
 from ple.synthesis import synthesis_engine
+from ple.synthesis.tension_collapse_predictor import (
+    TensionCollapsePredictor,
+    confirm_collapse,
+)
 
 
 @dataclass
@@ -57,6 +72,7 @@ class PipelineResult:
     syntheses: list[SynthesisRecord] = field(default_factory=list)
     attractors: list[Attractor] = field(default_factory=list)
     findings: list[Finding] = field(default_factory=list)
+    horizons: list[ResolutionHorizon] = field(default_factory=list)
     episode = None
     metrics: dict = field(default_factory=dict)
 
@@ -69,13 +85,17 @@ class PipelineResult:
 class ParadoxLatticeEngine:
     """Stateful orchestrator — owns the lattice, memory, registries, and router."""
 
-    def __init__(self) -> None:
+    def __init__(self, max_active_paradoxes: int = 64) -> None:
         self.router = TensionRouter()
         self.memory = ParadoxMemoryBuffer()
         self.lattice = lattice_builder.initialize()
         self.attractor_registry = AttractorRegistry()
         self.attractor_detector = AttractorDetector(self.attractor_registry)
+        self.collapse_predictor = TensionCollapsePredictor()
+        self.pattern_store = LatticePatternStore()
+        self.max_active_paradoxes = max_active_paradoxes
         self._known_paradoxes: dict[tuple, ParadoxNode] = {}
+        self._encounters: dict[tuple, int] = {}
         self._findings_emitted: set[str] = set()
 
     # ------------------------------------------------------------------
@@ -83,13 +103,29 @@ class ParadoxLatticeEngine:
         self, frame_a: dict, frame_b: dict, context: dict | None = None
     ) -> PipelineResult:
         """Run the full pipeline on a pair of frames."""
-        context = context or {}
+        return self._run([(frame_a, frame_b)], context or {})
+
+    def process_many(
+        self, frames: list[dict], context: dict | None = None
+    ) -> PipelineResult:
+        """Multi-agent / multi-frame entry point: every pair of frames is
+        checked for contradiction, and when three or more frames conflict on
+        the same claim, the pairwise paradoxes merge into a nested cluster
+        under the hottest one (cross-frame paradox merging)."""
+        return self._run(list(combinations(frames, 2)), context or {})
+
+    # ------------------------------------------------------------------
+    def _run(
+        self, pairs: list[tuple[dict, dict]], context: dict
+    ) -> PipelineResult:
         result = PipelineResult()
 
-        # Stage 1 — paradox detection & normalization
-        result.paradox_nodes = self._paradox_stage(frame_a, frame_b, context)
+        # Stage 1 — paradox detection & normalization (+ cross-frame merge)
+        result.paradox_nodes = self._paradox_stage(pairs, context)
         if not result.triggered:
             return result  # no contradiction, PLE stays dormant
+        self._merge_cross_frame(result.paradox_nodes)
+        self._guard_paradox_flooding()
 
         # Stage 2 — tension field generation
         result.tension_field = self._tension_stage(context)
@@ -99,13 +135,14 @@ class ParadoxLatticeEngine:
             result.paradox_nodes, result.tension_field
         )
 
-        # Stage 4 — synthesis pass + attractor dynamics + findings
+        # Stage 4 — synthesis pass + attractor dynamics + horizons + findings
         result.syntheses = self._synthesis_stage(
             result.paradox_nodes, result.tension_field
         )
         result.attractors, result.findings = self._attractor_stage(
             result.paradox_nodes, result.syntheses
         )
+        result.horizons = self._resolution_stage(result.paradox_nodes)
 
         # Stage 5 — memory & metrics
         result.episode = self._memory_stage(result, context)
@@ -114,50 +151,154 @@ class ParadoxLatticeEngine:
             "tension_load": ecology.tension_load(result.tension_field),
             "synthesis_quality": ecology.synthesis_quality(result.syntheses),
             "stability": ecology.stability_profile(self.lattice),
+            "active_paradoxes": len(self.memory.get_active_paradoxes()),
         }
         return result
 
     # -- Stage 1 ---------------------------------------------------------
     def _paradox_stage(
-        self, frame_a: dict, frame_b: dict, context: dict
+        self, pairs: list[tuple[dict, dict]], context: dict
     ) -> list[ParadoxNode]:
         nodes: list[ParadoxNode] = []
-        for raw in paradox_detector.detect(frame_a, frame_b, context):
-            ctype = contradiction_classifier.classify(raw, context)
-            intensity = paradox_intensity_model.estimate(raw, ctype, context)
+        seen_ids: set[str] = set()
+        for frame_a, frame_b in pairs:
+            for raw in paradox_detector.detect(frame_a, frame_b, context):
+                ctype = contradiction_classifier.classify(raw, context)
+                intensity = paradox_intensity_model.estimate(raw, ctype, context)
 
-            sig = (frozenset({raw.frame_a, raw.frame_b}), raw.claim_key, ctype)
-            known = self._known_paradoxes.get(sig)
-            if known is not None:
-                # Re-encounter: the contradiction sharpens; re-intensify.
-                paradox_intensity_model.intensify(known, 0.1)
+                sig = (frozenset({raw.frame_a, raw.frame_b}), raw.claim_key, ctype)
+                self._encounters[sig] = self._encounters.get(sig, 0) + 1
+                known = self._known_paradoxes.get(sig)
+                if known is not None:
+                    if known.paradox_id in seen_ids:
+                        continue
+                    # Re-encounter: the contradiction sharpens; re-intensify.
+                    # Habituation: a contradiction the system has synthesized
+                    # many times sharpens less each return, so its tension can
+                    # eventually drain past the collapse horizon instead of
+                    # oscillating forever. But a collapsed paradox returning
+                    # is evidence it was never truly drained — the flare-back
+                    # resets habituation and the paradox burns hot again.
+                    if known.state == ParadoxState.ATTENUATED:
+                        known.transition(
+                            ParadoxState.ACTIVE, actor="paradox_layer"
+                        )
+                        self._encounters[sig] = 1
+                    paradox_intensity_model.intensify(
+                        known, 0.1 / self._encounters[sig]
+                    )
+                    self.router.emit(
+                        events.ParadoxEvent(
+                            event_type="updated", paradox_id=known.paradox_id
+                        )
+                    )
+                    nodes.append(known)
+                    seen_ids.add(known.paradox_id)
+                    continue
+
+                node = paradox_normalizer.to_paradox_node(
+                    raw, ctype, intensity, context
+                )
+                self._known_paradoxes[sig] = node
+                self.memory.track_paradox(node)
+                self._destabilize_touched_attractors(node)
                 self.router.emit(
                     events.ParadoxEvent(
-                        event_type="updated", paradox_id=known.paradox_id
+                        event_type="detected", paradox_id=node.paradox_id
                     )
                 )
-                nodes.append(known)
-                continue
+                self.router.emit(
+                    events.ParadoxEvent(
+                        event_type="normalized", paradox_id=node.paradox_id
+                    )
+                )
+                nodes.append(node)
+                seen_ids.add(node.paradox_id)
+        return nodes
 
-            node = paradox_normalizer.to_paradox_node(raw, ctype, intensity, context)
-            self._known_paradoxes[sig] = node
-            self.memory.track_paradox(node)
-            self.router.emit(
-                events.ParadoxEvent(event_type="detected", paradox_id=node.paradox_id)
+    def _merge_cross_frame(self, nodes: list[ParadoxNode]) -> None:
+        """When >= 3 frames conflict on the same claim in one run, nest the
+        pairwise paradoxes under the most intense one."""
+        by_claim: dict[str, list[ParadoxNode]] = {}
+        for node in nodes:
+            key = node.context_window.get("claim_key")
+            by_claim.setdefault(key, []).append(node)
+
+        for cluster in by_claim.values():
+            if len(cluster) < 2:
+                continue
+            frames = set()
+            for n in cluster:
+                frames |= n.frames
+            if len(frames) < 3:
+                continue
+            parent = max(cluster, key=lambda n: n.intensity)
+            for child in cluster:
+                if child is parent:
+                    continue
+                paradox_normalizer.nest(parent, child)
+                self.router.emit(
+                    events.ParadoxEvent(
+                        event_type="nested", paradox_id=child.paradox_id,
+                        metadata={"parent": parent.paradox_id},
+                    )
+                )
+
+    def _destabilize_touched_attractors(self, new_paradox: ParadoxNode) -> None:
+        """Anti-ossification: a genuinely new paradox involving an existing
+        attractor's frames shakes that attractor's stability, and its
+        findings are revalidated against the shaken structure."""
+        for (paradox_sig, _method), attractor in self.attractor_registry.items():
+            if attractor.state not in (
+                AttractorState.ACTIVE,
+                AttractorState.STABILIZING,
+            ):
+                continue
+            attractor_frames = paradox_sig[0]
+            same_pattern = (
+                paradox_sig[0] == frozenset(new_paradox.frames)
+                and paradox_sig[1] == new_paradox.context_window.get("claim_key")
             )
+            if same_pattern or not (attractor_frames & new_paradox.frames):
+                continue
+            shock = 0.2 * new_paradox.intensity
+            attractor_stability.destabilize(attractor, shock)
+            if attractor.state == AttractorState.ATTENUATED:
+                self.router.emit(
+                    events.AttractorEvent(
+                        event_type="attenuated",
+                        attractor_id=attractor.attractor_id,
+                    )
+                )
+            for finding in self.memory.findings_by_attractor(
+                attractor.attractor_id
+            ):
+                finding_validator.validate(finding, self.attractor_registry)
+
+    def _guard_paradox_flooding(self) -> None:
+        """Density threshold: when the active ecology overflows, the most
+        drained attenuated paradoxes are archived (memory's prerogative).
+        Active paradoxes are never archived prematurely."""
+        active = self.memory.get_active_paradoxes()
+        overflow = len(active) - self.max_active_paradoxes
+        if overflow <= 0:
+            return
+        attenuated = sorted(
+            (p for p in active if p.state == ParadoxState.ATTENUATED),
+            key=lambda p: p.intensity,
+        )
+        for paradox in attenuated[:overflow]:
+            self.memory.archive_paradox(paradox)
             self.router.emit(
                 events.ParadoxEvent(
-                    event_type="normalized", paradox_id=node.paradox_id
+                    event_type="archived", paradox_id=paradox.paradox_id
                 )
             )
-            nodes.append(node)
-        return nodes
 
     # -- Stage 2 ---------------------------------------------------------
     def _tension_stage(self, context: dict) -> TensionField:
         active = self.memory.get_active_paradoxes()
         field_obj = tension_field_generator.build(active, context)
-        resolution_horizon.update_from_field(field_obj, active)
         self.router.emit(
             events.TensionFieldEvent(
                 event_type="generated", field_id=field_obj.field_id
@@ -228,8 +369,11 @@ class ParadoxLatticeEngine:
                     attractor, record.synthesis_id
                 )
 
-            count = self.attractor_detector.recurrence_count(sig, record.method)
-            attractor_stability.reinforce(attractor, count)
+            if attractor.state != AttractorState.ATTENUATED:
+                count = self.attractor_detector.recurrence_count(
+                    sig, record.method
+                )
+                attractor_stability.reinforce(attractor, count)
             attractors.append(attractor)
 
             finding = self._maybe_extract_finding(attractor, paradox)
@@ -237,10 +381,39 @@ class ParadoxLatticeEngine:
                 findings.append(finding)
         return attractors, findings
 
+    def _resolution_stage(
+        self, paradoxes: list[ParadoxNode]
+    ) -> list[ResolutionHorizon]:
+        """Collapse prediction: track post-synthesis intensities, classify
+        each paradox's trajectory, and confirm collapses whose tension has
+        fully drained."""
+        for paradox in paradoxes:
+            self.collapse_predictor.observe(paradox)
+        horizons = self.collapse_predictor.predict(paradoxes)
+        lattice_builder.set_resolution_horizons(
+            self.lattice, [h.horizon_id for h in horizons]
+        )
+        for paradox, horizon in zip(paradoxes, horizons):
+            outcome = self.collapse_predictor.classify(paradox)
+            if outcome == "collapsed":
+                confirm_collapse(paradox)
+            self.router.emit(
+                events.ResolutionEvent(
+                    event_type=outcome, horizon_id=horizon.horizon_id
+                )
+            )
+        return horizons
+
     def _maybe_extract_finding(
         self, attractor: Attractor, paradox: ParadoxNode
     ) -> Finding | None:
         if attractor.attractor_id in self._findings_emitted:
+            return None
+        if attractor.state in (
+            AttractorState.ATTENUATED,
+            AttractorState.CANDIDATE,
+            AttractorState.FORMING,
+        ):
             return None
         if attractor.stability_score < finding_extractor.MIN_STABILITY:
             return None
@@ -263,12 +436,18 @@ class ParadoxLatticeEngine:
     # -- Stage 5 ---------------------------------------------------------
     def _memory_stage(self, result: PipelineResult, context: dict):
         resolution_state = "unresolved"
-        if result.findings:
+        if any(
+            p.state == ParadoxState.ATTENUATED for p in result.paradox_nodes
+        ):
+            resolution_state = "collapsed"
+        elif result.findings:
             resolution_state = "partial"  # tension reorganized, paradox intact
+        snapshot = self.lattice.snapshot()
+        self.pattern_store.record(snapshot)
         episode = self.memory.store_episode(
             paradox_ids=[p.paradox_id for p in result.paradox_nodes],
             field=result.tension_field,
-            lattice_snapshot=self.lattice.snapshot(),
+            lattice_snapshot=snapshot,
             synthesis_records=result.syntheses,
             attractor_ids=[a.attractor_id for a in result.attractors],
             finding_ids=[f.finding_id for f in result.findings],
