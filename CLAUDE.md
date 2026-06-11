@@ -6,9 +6,46 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Status
 
-This is a **specification-only repository**. Phase 0 (structural definition) is complete. No source code exists yet — the planned Python modules listed in `README.md` are aspirational. Implementation begins in Phase 1.
+The engine is **implemented** as the Python package `ple/` (Phases 1, 2 (partial), 3 (partial), and 5 of the roadmap). The contract documents (`*_contract.md`) remain the authoritative behavioral spec; the code enforces them at runtime via `ContractViolation` exceptions.
 
-There are no build commands, test runners, or linters to run at this time.
+## Commands
+
+```bash
+pip install -e ".[dev]"        # install package + pytest (required once)
+pytest                          # run the full test suite
+pytest tests/test_pipeline.py   # run one test file
+pytest tests/test_pipeline.py::TestFindings::test_repeated_tension_produces_validated_finding  # one test
+python3 examples/demo.py        # end-to-end demo: contradiction -> Finding
+```
+
+There is no linter configured. Python ≥ 3.10 (uses modern type syntax); only dev dependency is pytest.
+
+## Implementation Map
+
+```
+ple/models/      — frozen dataclasses for all TYPES.md types + ParadoxLattice graph
+ple/models/_mutation.py — the authorized-mutation gateway (actor allowlists per field)
+ple/errors.py    — ContractViolation hierarchy
+ple/events/      — typed events; invalid types (resolved/deleted/overwritten) raise at construction
+ple/core/        — ParadoxLatticeEngine orchestrator (paradox_pipeline.py) + TensionRouter
+ple/paradox/     — detector, classifier, intensity model (sole intensity mutator), normalizer
+ple/fields/      — tension field generator, coherence map processor, resolution horizons
+ple/lattice/     — lattice builder, simplifier (cannot delete paradox/attractor nodes)
+ple/synthesis/   — synthesis engine (method chosen by contradiction type)
+ple/attractors/  — detector (recurrence >= 2), evolution, stability, registry
+ple/findings/    — extractor (requires stable attractor), validator, export
+ple/memory/      — append-only ParadoxMemoryBuffer
+ple/metrics/     — ecology metrics (density, tension load, quality, stability)
+tests/           — contract enforcement + end-to-end pipeline tests
+```
+
+### Key implementation patterns
+
+- **Immutability**: models are frozen dataclasses. The narrow mutable fields (intensity, stability_score, validation_status, …) are written only through `ple/models/_mutation.py:authorized_set`, which checks a per-(type, field) actor allowlist. When adding a processor that needs write access, register it there.
+- **Lifecycle**: each model owns a `transition(new_state, actor=...)` method validating both the state edge and the acting layer against the contract tables.
+- **Actor strings**: modules declare an `ACTOR` constant (e.g. `"synthesis_engine"`) and pass it to guarded operations. The lattice additionally restricts which node types each actor may add.
+- **Recurrence drives emergence**: `ParadoxLatticeEngine` is stateful. The same contradiction processed twice forms an attractor; a finding is extracted once per attractor the moment stability crosses `finding_extractor.MIN_STABILITY` (0.5) — typically on the second encounter.
+- **Frames** are plain dicts: `{"name": str, "claims": {key: value}}`; contradictions are shared claim keys with conflicting (post-canonicalization) values.
 
 ---
 

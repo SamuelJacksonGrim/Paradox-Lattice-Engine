@@ -260,6 +260,35 @@ Integration modules:
 
 ---
 
+🚀 Quick Start
+
+```bash
+pip install -e ".[dev]"   # install the package + pytest
+pytest                     # run the test suite (58 tests)
+python3 examples/demo.py   # watch a contradiction become a Finding
+```
+
+```python
+from ple import ParadoxLatticeEngine
+
+engine = ParadoxLatticeEngine()
+result = engine.process(
+    {"name": "wave_theory", "claims": {"light_is": "a wave"}},
+    {"name": "particle_theory", "claims": {"light_is": "a particle"}},
+)
+result.triggered            # True — a paradox was detected
+result.syntheses[0].method  # 'hybridization'
+
+# Recurrence forms attractors; stable attractors yield Findings.
+result = engine.process(
+    {"name": "wave_theory", "claims": {"light_is": "a wave"}},
+    {"name": "particle_theory", "claims": {"light_is": "a particle"}},
+)
+print(result.findings[0].insight)
+```
+
+---
+
 🗺️ Roadmap
 
 Phase 0 — Structural Definition
@@ -268,20 +297,20 @@ Phase 0 — Structural Definition
 - [x] Architecture spec  
 
 Phase 1 — Minimal Paradox Engine
-- [ ] Paradox detection  
-- [ ] Tension field MVP  
-- [ ] Lattice builder MVP  
-- [ ] Basic synthesis engine  
+- [x] Paradox detection  
+- [x] Tension field MVP  
+- [x] Lattice builder MVP  
+- [x] Basic synthesis engine  
 
 Phase 2 — Paradox Memory & Retrieval
-- [ ] Tension signatures  
+- [x] Tension signatures  
 - [ ] Lattice pattern store  
-- [ ] Synthesis history  
-- [ ] Attractor history  
+- [x] Synthesis history  
+- [x] Attractor history (registry + recurrence tracking)  
 
 Phase 3 — Stability & Resolution
-- [ ] Resolution horizon modeling  
-- [ ] Stability profiles  
+- [x] Resolution horizon modeling (basic)  
+- [x] Stability profiles  
 - [ ] Collapse prediction  
 
 Phase 4 — Multi‑Frame / Multi‑Mind Support
@@ -289,9 +318,9 @@ Phase 4 — Multi‑Frame / Multi‑Mind Support
 - [ ] Multi‑agent contradiction modeling  
 
 Phase 5 — Findings Layer
-- [ ] Finding extraction  
-- [ ] Finding validation  
-- [ ] Finding export  
+- [x] Finding extraction  
+- [x] Finding validation  
+- [x] Finding export  
 
 Phase 6 — Production Integration
 - [ ] External API  
