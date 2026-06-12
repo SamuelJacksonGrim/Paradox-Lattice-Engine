@@ -36,7 +36,7 @@ ple/attractors/  — detector (recurrence >= 2), evolution, stability, registry
 ple/findings/    — extractor (requires stable attractor), validator, export
 ple/memory/      — append-only ParadoxMemoryBuffer + LatticePatternStore (bucketed motif signatures)
 ple/metrics/     — ecology metrics (density, tension load, quality, stability)
-ple/integration/ — external_api facade (submit_frames/get_findings/ecology_report) + system_hooks
+ple/integration/ — external_api facade (submit_frames/get_findings/ecology_report) + system_hooks + rfecore2hook
 tests/           — contract enforcement + end-to-end pipeline + emergence tests
 ```
 
@@ -149,9 +149,9 @@ models/        — data classes: paradox, tension_field, lattice, synthesis, att
 
 PLE is a sidecar subsystem. Three external integration targets:
 
-- **LAE (Liminal Anchor Engine)** — LAE structures transitions; PLE structures contradictions. PLE can emit paradox-driven tension that LAE treats as transition triggers. Bridge: `integration/lae_bridge.py`.
-- **Chimera Core / multi-mind systems** — micro-mind collisions become `ParadoxNode`s. Bridge: `integration/chimera_bridge.py`.
-- **RFE-Core2** — hooks into conflict layers and evaluator disagreements. Bridge: `integration/rfecore2hook.py`.
+- **LAE (Liminal Anchor Engine)** — LAE structures transitions; PLE structures contradictions. PLE can emit paradox-driven tension that LAE treats as transition triggers via `system_hooks.register_transition_trigger()`. A dedicated `integration/lae_bridge.py` remains planned — deferred deliberately: in the first RFE-Core2 measurement arc both engines read the host independently, so a cross-sidecar coupling would muddy attribution without adding measurement value.
+- **Chimera Core / multi-mind systems** — micro-mind collisions become `ParadoxNode`s. Bridge: `integration/chimera_bridge.py` (planned).
+- **RFE-Core2** — hooks into conflict layers and evaluator disagreements. Bridge: `integration/rfecore2hook.py` (**implemented**): `frames_from_cycle(telemetry)` discretizes one cycle's evaluator telemetry (watcher components, coherence delta, valence/dominant emotion, governance decision, manipulation severity, rhythm) into eight frames; `submit_cycle(engine, telemetry, context)` feeds them through `external_api.submit_frames`. The hook is read-only and imports nothing from RFE-Core2.
 
 ---
 
