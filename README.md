@@ -229,6 +229,10 @@ A stored paradox → tension → lattice → synthesis → attractor → finding
 
 🔌 Integration
 
+**→ See [`integration/README.md`](integration/README.md) for the full integration guide** —
+what PLE is in depth, the frame/result contract, and step-by-step wiring
+(including how to feed a local LLM running in a terminal).
+
 PLE integrates with:
 
 - LAE (Liminal Anchor Engine)  

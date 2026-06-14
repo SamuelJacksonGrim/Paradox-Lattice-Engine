@@ -88,33 +88,46 @@ def _resulting_frame(paradox: ParadoxNode, method: str) -> str:
 def _write_to_lattice(
     record: SynthesisRecord, paradox: ParadoxNode, lattice: ParadoxLattice
 ) -> None:
-    """Create the synthesis node and its edges (synthesis_contract.md §6)."""
-    s_node = lattice.add_node(
-        LatticeNode(
-            node_type="synthesis",
-            payload={
-                "synthesis_id": record.synthesis_id,
-                "method": record.method,
-                "resulting_frame": record.resulting_frame,
-            },
-            stability_score=record.quality_score,
-        ),
-        actor=ACTOR,
-    )
+    """Create the synthesis node and its edges (synthesis_contract.md §6).
+
+    Synthesis nodes are content-addressed: a re-encountered contradiction
+    reuses the existing node for its synthesis shape rather than adding an
+    identical one each cycle. This keeps the live lattice bounded under
+    recurrence (the synthesis *history* in memory still records every
+    encounter, so attractor recurrence detection is unaffected) and avoids
+    duplicate edges that would otherwise accumulate without bound.
+    """
+    s_node = lattice.find_synthesis_node(record.method, record.resulting_frame)
+    if s_node is None:
+        s_node = lattice.add_node(
+            LatticeNode(
+                node_type="synthesis",
+                payload={
+                    "synthesis_id": record.synthesis_id,
+                    "method": record.method,
+                    "resulting_frame": record.resulting_frame,
+                },
+                stability_score=record.quality_score,
+            ),
+            actor=ACTOR,
+        )
     p_node = lattice.find_paradox_node(paradox.paradox_id)
-    lattice.add_edge(
-        LatticeEdge(
-            source=p_node.node_id,
-            target=s_node.node_id,
-            relation_type="synthesis",
-            weight=record.quality_score,
-            tension_transfer=record.tension_reduction,
-        ),
-        actor=ACTOR,
-    )
+    if not lattice.has_edge(p_node.node_id, s_node.node_id, "synthesis"):
+        lattice.add_edge(
+            LatticeEdge(
+                source=p_node.node_id,
+                target=s_node.node_id,
+                relation_type="synthesis",
+                weight=record.quality_score,
+                tension_transfer=record.tension_reduction,
+            ),
+            actor=ACTOR,
+        )
     for frame in sorted(paradox.frames):
         f_node = lattice.find_frame_node(frame)
-        if f_node is not None:
+        if f_node is not None and not lattice.has_edge(
+            f_node.node_id, s_node.node_id, "dependency"
+        ):
             lattice.add_edge(
                 LatticeEdge(
                     source=f_node.node_id,

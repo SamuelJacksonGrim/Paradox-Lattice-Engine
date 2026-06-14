@@ -9,6 +9,22 @@ from dataclasses import dataclass, field
 from ple.errors import ContractViolation, InvalidLifecycleTransition
 from ple.models._mutation import authorized_set
 
+def _freeze(value):
+    """Stable, hashable representation of an arbitrary payload value, for
+    content-addressed snapshot interning. Order-independent for dicts."""
+    if isinstance(value, dict):
+        return tuple(sorted((k, _freeze(v)) for k, v in value.items()))
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze(v) for v in value)
+    if isinstance(value, set):
+        return tuple(sorted(_freeze(v) for v in value))
+    try:
+        hash(value)
+        return value
+    except TypeError:
+        return repr(value)
+
+
 NODE_TYPES = frozenset({"paradox", "frame", "synthesis", "attractor"})
 EDGE_TYPES = frozenset(
     {"contradiction", "overlap", "synthesis", "dependency", "attractor_link"}
@@ -111,6 +127,60 @@ class ParadoxLattice:
         self.global_tension: float = 0.0
         self.resolution_horizons: list[str] = []
         self.state = LatticeState.INITIALIZED
+        # Content-addressed pools for snapshot interning. The lattice is
+        # append-only and snapshots are taken every cycle, so successive
+        # snapshots overlap almost entirely. Interning each node/edge record
+        # by its content means an unchanged node is stored ONCE and shared
+        # across every snapshot that contains it — turning per-snapshot
+        # memory from O(nodes) copies into O(changes). The records are never
+        # mutated after creation, so the "frozen copy for memory" guarantee
+        # (memory_contract.md §5) still holds: a later mutation to a live
+        # node yields a new content key and a new record, leaving older
+        # snapshots pointing at their original frozen record.
+        self._snapshot_node_pool: dict[tuple, dict] = {}
+        self._snapshot_edge_pool: dict[tuple, dict] = {}
+
+    def _intern_node(self, n: "LatticeNode") -> dict:
+        key = (
+            n.node_id,
+            n.node_type,
+            _freeze(n.payload),
+            n.tension_load,
+            n.stability_score,
+        )
+        rec = self._snapshot_node_pool.get(key)
+        if rec is None:
+            rec = {
+                "node_id": n.node_id,
+                "node_type": n.node_type,
+                "payload": dict(n.payload),
+                "tension_load": n.tension_load,
+                "stability_score": n.stability_score,
+            }
+            self._snapshot_node_pool[key] = rec
+        return rec
+
+    def _intern_edge(self, e: "LatticeEdge") -> dict:
+        key = (
+            e.edge_id,
+            e.source,
+            e.target,
+            e.relation_type,
+            e.weight,
+            e.tension_transfer,
+        )
+        rec = self._snapshot_edge_pool.get(key)
+        if rec is None:
+            rec = {
+                "edge_id": e.edge_id,
+                "source": e.source,
+                "target": e.target,
+                "relation_type": e.relation_type,
+                "weight": e.weight,
+                "tension_transfer": e.tension_transfer,
+            }
+            self._snapshot_edge_pool[key] = rec
+        return rec
 
     # -- read-only access -------------------------------------------------
     @property
@@ -145,6 +215,30 @@ class ParadoxLattice:
             if n.payload.get("frame") == frame:
                 return n
         return None
+
+    def find_synthesis_node(
+        self, method: str, resulting_frame: str
+    ) -> LatticeNode | None:
+        """A synthesis node is identified by its content (method + resulting
+        frame), not its synthesis_id. Re-encountering the same contradiction
+        produces a fresh SynthesisRecord every time, but they all describe
+        the same structural synthesis — so the lattice keeps one node for the
+        shape instead of accumulating an identical node per recurrence."""
+        for n in self.nodes_of_type("synthesis"):
+            if (
+                n.payload.get("method") == method
+                and n.payload.get("resulting_frame") == resulting_frame
+            ):
+                return n
+        return None
+
+    def has_edge(self, source: str, target: str, relation_type: str) -> bool:
+        return any(
+            e.source == source
+            and e.target == target
+            and e.relation_type == relation_type
+            for e in self._edges.values()
+        )
 
     # -- guarded mutation -------------------------------------------------
     def _check_actor(self, actor: str) -> None:
@@ -233,31 +327,18 @@ class ParadoxLattice:
         self.state = new_state
 
     def snapshot(self) -> dict:
-        """Frozen copy for memory (memory_contract.md §5)."""
+        """Frozen, content-interned copy for memory (memory_contract.md §5).
+
+        Node/edge records are pulled from per-lattice content pools so that
+        records unchanged since an earlier snapshot are reused rather than
+        re-copied. The returned dict has exactly the same shape as before
+        (callers see plain node/edge dicts); only the storage is shared.
+        """
         return {
             "snapshot_id": f"ls-{uuid.uuid4().hex[:12]}",
             "lattice_id": self.lattice_id,
             "state": self.state.value,
             "global_tension": self.global_tension,
-            "nodes": tuple(
-                {
-                    "node_id": n.node_id,
-                    "node_type": n.node_type,
-                    "payload": dict(n.payload),
-                    "tension_load": n.tension_load,
-                    "stability_score": n.stability_score,
-                }
-                for n in self._nodes.values()
-            ),
-            "edges": tuple(
-                {
-                    "edge_id": e.edge_id,
-                    "source": e.source,
-                    "target": e.target,
-                    "relation_type": e.relation_type,
-                    "weight": e.weight,
-                    "tension_transfer": e.tension_transfer,
-                }
-                for e in self._edges.values()
-            ),
+            "nodes": tuple(self._intern_node(n) for n in self._nodes.values()),
+            "edges": tuple(self._intern_edge(e) for e in self._edges.values()),
         }
