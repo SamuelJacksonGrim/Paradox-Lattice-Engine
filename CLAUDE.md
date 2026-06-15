@@ -59,6 +59,8 @@ The Paradox Lattice Engine (PLE) is a cognitive subsystem that treats contradict
 
 The central question PLE answers: **"What becomes possible because this contradiction exists?"**
 
+**PLE is an active processing engine — not a read-only probe or measurement tool.** Submitting frames *runs* the six-layer pipeline and *produces* tension fields, a lattice, syntheses, attractors, and findings: it **grows** new structure from contradiction, it does not merely detect, report, or measure it. (The only read-only measurement code in the repo is `examples/benchmark_overhead.py`, which times PLE itself; note the "measurement arc" wording under Integration Points refers to an experiment using PLE, not to PLE being a measurement tool.) Do not describe PLE as observe-only or as something that "just measures."
+
 ---
 
 ## Six-Layer Architecture
