@@ -15,6 +15,12 @@ Where most architectures treat paradox as an error to be eliminated, PLE treats 
 PLE does not resolve contradictions.  
 It organizes them into structure and grows cognition from tension.
 
+**PLE is an active processing engine — not a read-only probe or measurement tool.**
+Submitting frames does not merely *detect* a contradiction and report it; each call **produces**
+new structure: a tension field, a paradox lattice, syntheses, attractors, and validated
+findings the host can use. (The only read-only measurement code in this repo is
+`examples/benchmark_overhead.py`, which measures PLE's *own* runtime cost.)
+
 ---
 
 🧭 Purpose
