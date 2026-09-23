@@ -1,4 +1,11 @@
-🧬 Paradox Lattice Engine (PLE)
+# Paradox Lattice Engine (PLE)
+
+[![License: AGPL-3.0-only](https://img.shields.io/badge/license-AGPL--3.0--only-blue)](LICENSE)
+[![dual-license](https://img.shields.io/badge/dual--license-AGPL--3.0--only%20or%20commercial-blueviolet)](LICENSING.md)
+[![Python](https://img.shields.io/badge/python-%3E%3D3.10-3776AB?logo=python&logoColor=white)](https://www.python.org)
+![status](https://img.shields.io/badge/status-early-success)
+
+Paradox Lattice Engine (PLE)
 
 A subsystem for structuring, amplifying, and synthesizing contradictions
 
